@@ -1,3 +1,4 @@
+cat << 'EOF' > roulette_medical_optimized_version_v20.6.py
 import requests, time, random, re, json
 
 print("💀 ====== 《AI 恶魔轮盘赌：v20.6 Pro 伤害膨胀版》 ====== 💀")
@@ -34,7 +35,6 @@ B_MEDICAL = "医疗弹"
 B_REVERSE = "反转弹"
 B_UNKNOWN = "未知"
 
-# 恢复原汁原味的子弹权重
 BULLET_WEIGHTS = [
     (B_BLANK, 30), (B_LIVE, 20), (B_HIGH, 8), (B_DRAGON, 8), (B_ANESTHETIC, 4), 
     (B_VAMPIRE, 4), (B_GLASS, 4), (B_PIERCE, 4), (B_PLAGUE, 4), (B_SHOTGUN, 4), 
@@ -184,7 +184,7 @@ def apply_defense_and_damage(shooter, target, base_dmg, bullet_name):
     return True 
 
 def resolve_damage(shooter, target, bullet, sawed, extra_dmg=0, is_splash=False, is_launcher=False):
-    global dmg_bonus # 全局伤害加成
+    global dmg_bonus 
     
     if bullet == B_BLANK:
         print(f"  💨 【空包弹】无伤害。")
@@ -220,7 +220,6 @@ def resolve_damage(shooter, target, bullet, sawed, extra_dmg=0, is_splash=False,
     elif bullet in [B_ANESTHETIC, B_VAMPIRE]: base_dmg = 0 if bullet != B_VAMPIRE else 1
     elif bullet == B_CHAOS: base_dmg = random.randint(1, 4)
     
-    # 【应用动态伤害加成】
     if base_dmg > 0:
         base_dmg += dmg_bonus
         
@@ -322,13 +321,14 @@ while len(alive_players) > 1:
         
         if not chamber:
             round_num += 1
-            # 更新动态伤害加成，每10轮+1
             dmg_bonus = round_num // 10
             
             chamber = load_chamber()
             print(f"\n💥 【换弹】第 {round_num} 轮，上帝视角弹匣序列：{chamber}")
-            if dmg_bonus > 0:
-                print(f"🔥 【武器过热】第 {round_num} 轮起，环境恶化：所有造成伤害的子弹与手锯加成提升 {dmg_bonus} 点！")
+            
+            # 【彻底修复文案误解】只有当轮数是10的倍数时，才提示一次伤害提升
+            if round_num % 10 == 0:
+                print(f"🔥 【武器过热】环境恶化：从第 {round_num} 轮起，所有造成伤害的子弹与手锯加成提升至 {dmg_bonus} 点！")
                 
             for alive_p in alive_players:
                 if not alive_p.ally: alive_p.known_next = B_UNKNOWN
@@ -491,14 +491,14 @@ while len(alive_players) > 1:
                             current.hp = min(current.max_hp, current.hp + 1)
                             print(f"📦 常规急救！{current.name} 仅回复了 1 点生命 (HP: {current.hp})")
                     elif item == "战术医疗舱":
-                        current.hp = min(current.max_hp, current.hp + 3)
+                        current.hp = min(current.max_hp, current.hp + 3) 
                         current.has_shield = True
                         print(f"🩹 战地急救！{current.name} HP恢复到 {current.hp}，并获得一层防爆盾！")
                     elif item == "医疗箱":
-                        current.hp = min(current.max_hp, current.hp + 4)
+                        current.hp = min(current.max_hp, current.hp + 4) 
                         print(f"🧰 开启医疗箱！{current.name} 大量回血，HP恢复到 {current.hp}")
                     elif item == "万能解药":
-                        current.hp = min(current.max_hp, current.hp + 2)
+                        current.hp = min(current.max_hp, current.hp + 2) 
                         current.burning = False
                         current.blocked = False
                         current.reversed_turn = False
@@ -810,3 +810,5 @@ while len(alive_players) > 1:
 
 print(f"\n👑 游戏结束！最终幸存者：【{alive_players[0].name if alive_players else '无'}】！")
 print(f"💡 【账单】本局共消耗了 {total_tokens} 个 Token。")
+EOF
+python3 roulette_medical_optimized_version_v20.6.py
