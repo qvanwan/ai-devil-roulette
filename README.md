@@ -19,7 +19,9 @@ python roulette.py
 ```
 
 💡 提示：当前默认使用智谱 AI 的 glm-4-flash 模型。
+
 👉 怎么获取 Key？ 请前往 智谱 AI 开放平台 注册并申请 API Key。
+
 👉 想换模型？ 如果你想用 OpenAI、DeepSeek 或本地 Ollama，直接修改代码开头的 URL 和 MODEL 变量即可。
 
 ⚠️ 免责声明：本项目纯属技术娱乐和 AI 行为观察实验，游戏内的“赌博”、“背刺”机制不代表任何现实建议。
