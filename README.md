@@ -20,6 +20,17 @@ python roulette.py
 # 3. 在终端粘贴你的 API Key（仅在内存中运行，绝不落盘）
 ```
 
+> **📱 纯手机终端 (Termux/Podroid) 或纯命令行无编辑器运行方案：**
+> 如果你没有本地代码编辑器，可以直接在终端中输入以下命令，一键生成文件并运行：
+> ```bash
+> cat << 'EOF' > roulette.py
+> # 这里粘贴完整的 Python 代码
+> EOF
+> python3 roulette.py
+
+(注意：结尾的 EOF 必须单独占一行且不能有空格)
+
+
 💡 提示：当前默认使用智谱 AI 的 glm-4-flash 模型。
 
 👉 怎么获取 Key？ 请前往 智谱 AI 开放平台 注册并申请 API Key。
