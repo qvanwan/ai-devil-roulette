@@ -77,5 +77,5 @@ python roulette.py
 单局游戏平均消耗 8000 ~ 35000 Token不等。
 
 本项目基于 MIT 协议开源，欢迎 Fork 和二次开发。但请尊重原创，直接搬运或修改发布时，请注明原作者及原项目链接。
-原作者：https://github.com/qvanwan
-原项目：https://github.com/qvanwan/ai-devil-roulette
+原作者：[qvanwan](https://github.com/qvanwan)
+原项目：[ai-devil-roulette](https://github.com/qvanwan/ai-devil-roulette）
