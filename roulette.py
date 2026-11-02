@@ -1,6 +1,6 @@
 import requests, time, random, re, json
 
-print("💀 ====== 《AI 恶魔轮盘赌：v18.7 终极洁癖版》 ====== 💀")
+print("💀 ====== 《AI 恶魔轮盘赌：v18.7 终极版》 ====== 💀")
 API_KEY = input("请粘贴你的智谱 API Key：").strip()
 URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 MODEL = "glm-4-flash"
