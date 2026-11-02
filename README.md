@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# AI Devil Roulette (AI 恶魔轮盘赌)
+# Copyright (c) 2026 qvanwan (https://github.com/qvanwan)
+# 本项目基于 MIT 开源协议，转载或二次开发请保留此声明。
+
 # 🎰 AI 恶魔轮盘赌 (AI Devil Roulette)
 
 一个基于大语言模型（LLM）的**纯终端多智能体博弈游戏**。6 个 AI 坐在同一张牌桌上，为了活到最后，它们会撒谎、结盟、背刺，甚至因为“幻觉”把自己一枪崩了。
@@ -71,3 +76,7 @@ python roulette.py
 
 **💡 Token 消耗**：
 单局游戏平均消耗 8000 ~ 35000 Token不等。
+
+本项目基于 MIT 协议开源，欢迎 Fork 和二次开发。但请尊重原创，直接搬运或修改发布时，请注明原作者及原项目链接。
+原作者：https://github.com/qvanwan
+原项目：https://github.com/qvanwan/ai-devil-roulette
