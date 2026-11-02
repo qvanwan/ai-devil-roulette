@@ -612,13 +612,21 @@ while len(alive_players) > 1:
                             print(f"🤮 药效变质！扣除1血 (HP: {current.hp})")
                             handle_death(current)
                             if current not in alive_players: action_taken = True
+                    
+                    # 【核心修复】分离放大镜与一次性手机的逻辑与文案
                     elif item in ["放大镜", "一次性手机"]:
                         if item == "放大镜": 
                             sync_memory(current, chamber[0] if chamber else B_UNKNOWN)
+                            print(f"🔍 玩家 {current.name} 用放大镜查看了底牌，下一发是【{current.known_next}】。")
                         else:
-                            idx = random.randrange(len(chamber))
-                            sync_memory(current, chamber[idx] if len(chamber)>0 else B_UNKNOWN)
-                        print(f"🔍 玩家 {current.name} 偷偷查看了底牌，下一发是【{current.known_next}】（其他玩家不知道）。")
+                            if chamber:
+                                idx = random.randrange(len(chamber))
+                                sync_memory(current, chamber[idx])
+                                print(f"🔍 玩家 {current.name} 用手机偷拍了枪膛，第 {idx+1} 发是【{current.known_next}】（但下一发不一定是它）。")
+                            else:
+                                sync_memory(current, B_UNKNOWN)
+                                print(f"🔍 玩家 {current.name} 用手机偷拍了枪膛，但枪膛是空的。")
+                    
                     elif item == "啤酒":
                         if chamber:
                             eject = chamber.pop(0)
