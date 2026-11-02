@@ -1,4 +1,3 @@
-cat << 'EOF' > roulette_v18.py
 import requests, time, random, re, json
 
 print("💀 ====== 《AI 恶魔轮盘赌：v18.7 终极洁癖版》 ====== 💀")
@@ -685,5 +684,3 @@ while len(alive_players) > 1:
 
 print(f"\n👑 游戏结束！最终幸存者：【{alive_players[0].name if alive_players else '无'}】！")
 print(f"💡 【账单】本局共消耗了 {total_tokens} 个 Token。")
-EOF
-python3 roulette_v18.py
