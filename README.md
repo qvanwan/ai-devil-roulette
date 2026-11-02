@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
-# AI Devil Roulette (AI 恶魔轮盘赌)
-# Copyright (c) 2026 qvanwan (https://github.com/qvanwan)
-# 本项目基于 MIT 开源协议，转载或二次开发请保留此声明。
+### AI Devil Roulette (AI 恶魔轮盘赌)
+### Copyright (c) 2026 qvanwan (https://github.com/qvanwan)
+### 本项目基于 MIT 开源协议，转载或二次开发请保留此声明。
 
 # 🎰 AI 恶魔轮盘赌 (AI Devil Roulette)
 
