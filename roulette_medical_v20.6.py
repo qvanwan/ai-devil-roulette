@@ -34,7 +34,6 @@ B_MEDICAL = "医疗弹"
 B_REVERSE = "反转弹"
 B_UNKNOWN = "未知"
 
-# 【子弹概率优化】平滑分布
 BULLET_WEIGHTS = [
     (B_BLANK, 30), (B_LIVE, 20), (B_HIGH, 8), (B_DRAGON, 8), (B_ANESTHETIC, 4), 
     (B_VAMPIRE, 4), (B_GLASS, 4), (B_PIERCE, 4), (B_PLAGUE, 4), (B_SHOTGUN, 4), 
@@ -68,6 +67,7 @@ class Player:
         self.next_shot_buff = 0 
         self.double_shot = False 
         self.known_next = B_UNKNOWN 
+        self.known_pos = 0  # 【新增】记录情报是第几发
         self.ally = None 
 
 players = [Player(f"玩家{x}") for x in "ABCDEF"]
@@ -88,15 +88,18 @@ def ask_ai(sys_prompt, msg):
     except Exception:
         return '{"action": "shoot", "target": "自己"}'
 
-def sync_memory(target, bullet):
+def sync_memory(target, bullet, pos=0):
     target.known_next = bullet
+    target.known_pos = pos
     if target.ally:
         target.ally.known_next = bullet
+        target.ally.known_pos = pos
         print(f"  🔗 【同盟共享】底牌情报已同步给盟友 {target.ally.name}！")
 
 def clear_all_memories():
     for p in alive_players:
         p.known_next = B_UNKNOWN
+        p.known_pos = 0
     print("  🧠 物理顺序改变，所有人的私有记忆被强制清空！")
 
 def load_chamber():
@@ -197,14 +200,13 @@ def resolve_damage(shooter, target, bullet, sawed, extra_dmg=0, is_splash=False,
         if shooter.sawed: shooter.sawed = False
         return True
 
-    # 【医疗弹回调】群体治疗，但奶量砍半
     if bullet == B_MEDICAL:
         print(f"  💉 【医疗弹】炸开，产生了治疗雾！")
         if target in alive_players:
             idx = alive_players.index(target)
             targets_to_heal = [alive_players[(idx - 1) % len(alive_players)], target, alive_players[(idx + 1) % len(alive_players)]]
             for p in set(targets_to_heal):
-                p.hp = min(p.max_hp, p.hp + 1) # 【削弱】群体只回 1 血
+                p.hp = min(p.max_hp, p.hp + 1) 
                 p.healing_fog = True
                 print(f"    🩹 {p.name} 沐浴治疗雾，回复 1 点生命 (HP: {p.hp})，下回合将再回复 1 点。")
         return True
@@ -312,14 +314,18 @@ while len(alive_players) > 1:
             if p1.ally == p2 and p2.ally == p1:
                 break
 
-        if not p.ally: p.known_next = B_UNKNOWN
+        if not p.ally: 
+            p.known_next = B_UNKNOWN
+            p.known_pos = 0
         
         if not chamber:
             round_num += 1
             chamber = load_chamber()
             print(f"\n💥 【换弹】第 {round_num} 轮，上帝视角弹匣序列：{chamber}")
             for alive_p in alive_players:
-                if not alive_p.ally: alive_p.known_next = B_UNKNOWN
+                if not alive_p.ally: 
+                    alive_p.known_next = B_UNKNOWN
+                    alive_p.known_pos = 0
                 alive_p.sawed = False
                 alive_p.has_shield = False
                 alive_p.has_plate = False
@@ -389,7 +395,14 @@ while len(alive_players) > 1:
                 if current.has_defib and "除颤器" in current.items:
                     item_prompt += " (你身上已有除颤器，不能再装除颤器！)"
 
-            private_info = f"你的私有记忆：你确切知道下一发是【{current.known_next}】。" if current.known_next != B_UNKNOWN else "你的私有记忆：你不知道下一发是什么。"
+            # 【核心修复】动态 Prompt 提示词，让 AI 分清楚是第几发
+            if current.known_next != B_UNKNOWN:
+                if current.known_pos == 1:
+                    private_info = f"你的私有情报：你确切知道【下一发】是【{current.known_next}】。"
+                else:
+                    private_info = f"你的私有情报：你确切知道枪膛里的【第 {current.known_pos} 发】是【{current.known_next}】（注意，这不一定是你马上要打出的下一发）。"
+            else:
+                private_info = "你的私有记忆：你不知道下一发是什么。"
             
             prompt = f"""你是{current.name}。HP:{current.hp}。
 {item_prompt}
@@ -444,7 +457,6 @@ while len(alive_players) > 1:
 
                     current.items.remove(item)
                     
-                    # 【反转判定：道具类】
                     if is_reversed_this_turn:
                         print(f"  🌀 【反转发作】{current.name} 原本想使用【{item}】，结果动作被扭曲！")
                         if item in ["香烟", "纳米急救箱", "战术医疗舱", "强效肾上腺素", "过期药品", "医疗箱", "万能解药"]:
@@ -463,7 +475,7 @@ while len(alive_players) > 1:
                             print(f"    🚫 {current.name} 试图使用【{item}】，但装备失败，道具浪费。")
                         handle_death(current)
                         if current not in alive_players: action_taken = True
-                        continue # 反转动作执行完，结束回合
+                        continue 
 
                     print(f"  🛠️ {current.name} 使用了【{item}】")
                     
@@ -480,14 +492,14 @@ while len(alive_players) > 1:
                             current.hp = min(current.max_hp, current.hp + 1)
                             print(f"📦 常规急救！{current.name} 仅回复了 1 点生命 (HP: {current.hp})")
                     elif item == "战术医疗舱":
-                        current.hp = min(current.max_hp, current.hp + 3) # 【回调】+3
+                        current.hp = min(current.max_hp, current.hp + 3) 
                         current.has_shield = True
                         print(f"🩹 战地急救！{current.name} HP恢复到 {current.hp}，并获得一层防爆盾！")
                     elif item == "医疗箱":
-                        current.hp = min(current.max_hp, current.hp + 4) # 【回调】+4
+                        current.hp = min(current.max_hp, current.hp + 4) 
                         print(f"🧰 开启医疗箱！{current.name} 大量回血，HP恢复到 {current.hp}")
                     elif item == "万能解药":
-                        current.hp = min(current.max_hp, current.hp + 2) # 【回调】+2
+                        current.hp = min(current.max_hp, current.hp + 2) 
                         current.burning = False
                         current.blocked = False
                         current.reversed_turn = False
@@ -535,6 +547,7 @@ while len(alive_players) > 1:
                                     tgt.ally = current
                                     contract_alive = True
                                     current.known_next = tgt.known_next
+                                    current.known_pos = tgt.known_pos
                                     print(f"✅ {tgt.name} 同意了结盟！双方达成生死契约！")
                                 else:
                                     print(f"❌ {tgt.name} 拒绝了结盟请求！")
@@ -595,19 +608,22 @@ while len(alive_players) > 1:
                             print(f"🤮 药效变质！扣除1血 (HP: {current.hp})")
                             handle_death(current)
                             if current not in alive_players: action_taken = True
-                    # 【核心修复】分离放大镜与一次性手机的逻辑与文案
+                    
+                    # 【核心修复】分离放大镜与一次性手机的逻辑与文案，配合神秘人告密设定
                     elif item in ["放大镜", "一次性手机"]:
                         if item == "放大镜": 
-                            sync_memory(current, chamber[0] if chamber else B_UNKNOWN)
+                            sync_memory(current, chamber[0] if chamber else B_UNKNOWN, 1)
                             print(f"🔍 玩家 {current.name} 用放大镜查看了底牌，下一发是【{current.known_next}】。")
                         else:
                             if chamber:
                                 idx = random.randrange(len(chamber))
-                                sync_memory(current, chamber[idx])
-                                print(f"🔍 玩家 {current.name} 用手机偷拍了枪膛，第 {idx+1} 发是【{current.known_next}】（但下一发不一定是它）。")
+                                sync_memory(current, chamber[idx], idx + 1)
+                                print(f"📞 玩家 {current.name} 拨打了神秘人电话。")
+                                print(f"🤫 神秘人告密：枪膛里的第 {idx+1} 发子弹是【{chamber[idx]}】！")
                             else:
-                                sync_memory(current, B_UNKNOWN)
-                                print(f"🔍 玩家 {current.name} 用手机偷拍了枪膛，但枪膛是空的。")
+                                sync_memory(current, B_UNKNOWN, 0)
+                                print(f"📞 玩家 {current.name} 拨打了神秘人电话，但枪膛是空的。")
+                    
                     elif item == "啤酒":
                         if chamber:
                             eject = chamber.pop(0)
@@ -617,7 +633,7 @@ while len(alive_players) > 1:
                             old_b = chamber[0]
                             chamber[0] = next_bullet_type(old_b)
                             if current.known_next != B_UNKNOWN: 
-                                sync_memory(current, next_bullet_type(current.known_next))
+                                sync_memory(current, next_bullet_type(current.known_next), current.known_pos)
                             print(f"🔄 逆转了子弹！")
                     elif item == "手锯": 
                         current.sawed = True
@@ -694,7 +710,6 @@ while len(alive_players) > 1:
                 else:
                     target = current if "自己" in tgt_name or current.name in tgt_name else next((x for x in alive_players if x.name in tgt_name), current)
                 
-                # 【反转判定：开枪类】
                 if is_reversed_this_turn and target != current:
                     print(f"  🌀 【反转发作】{current.name} 原本想打 {target.name}，结果枪口强行对准了自己！")
                     target = current
@@ -712,7 +727,6 @@ while len(alive_players) > 1:
                     bullet = B_BLANK
                     current.blinded = False
                 
-                # 【核心修复】锁定手锯状态，保证双发都吃到加成
                 was_sawed = current.sawed 
                 current.sawed = False 
                 
@@ -736,7 +750,6 @@ while len(alive_players) > 1:
                 extra_dmg += current.next_shot_buff
                 current.next_shot_buff = 0
 
-                # 定义单发子弹开火逻辑
                 def fire_single(bullet_type, target_obj):
                     if bullet_type == B_BLANK:
                         print(f"  💨 【空包弹】无伤害。")
@@ -745,15 +758,12 @@ while len(alive_players) > 1:
                         resolve_damage(current, target_obj, bullet_type, was_sawed, extra_dmg)
                         return True
 
-                # 打出第一发
                 fire_single(bullet, target)
 
-                # 【双发扳机判定】
                 if current.double_shot and current in alive_players:
                     current.double_shot = False
                     print(f"  🔫 【双发扳机】触发，强制打出第二发子弹！")
                     
-                    # 如果原目标已阵亡，强制打自己
                     target2 = target
                     if target not in alive_players:
                         target2 = current
@@ -762,14 +772,15 @@ while len(alive_players) > 1:
                     bullet2 = chamber.pop(0) if chamber else B_BLANK
                     fire_single(bullet2, target2)
 
-                # 处理自轰空包弹连击
                 if bullet == B_BLANK and target == current and not current.cursed:
                     print(f"  🔄 自轰空包，【{current.name}】连击！")
                     action_taken = False 
                     if not chamber: break
                     continue 
                 else:
-                    if not current.ally: current.known_next = B_UNKNOWN
+                    if not current.ally: 
+                        current.known_next = B_UNKNOWN
+                        current.known_pos = 0
                 break 
 
         if not action_taken:
@@ -799,7 +810,9 @@ while len(alive_players) > 1:
                     if current in alive_players:
                         resolve_damage(current, target, bullet, current.sawed, extra_dmg)
                         current.sawed = False
-                        if not current.ally: current.known_next = B_UNKNOWN
+                        if not current.ally: 
+                            current.known_next = B_UNKNOWN
+                            current.known_pos = 0
                 action_taken = True
 
         if len(alive_players) <= 1: break
