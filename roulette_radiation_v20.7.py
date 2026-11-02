@@ -68,6 +68,7 @@ class Player:
         self.next_shot_buff = 0 
         self.double_shot = False 
         self.known_next = B_UNKNOWN 
+        self.known_pos = 0  # 【新增】记录情报是第几发
         self.ally = None 
 
 players = [Player(f"玩家{x}") for x in "ABCDEF"]
@@ -88,15 +89,18 @@ def ask_ai(sys_prompt, msg):
     except Exception:
         return '{"action": "shoot", "target": "自己"}'
 
-def sync_memory(target, bullet):
+def sync_memory(target, bullet, pos=0):
     target.known_next = bullet
+    target.known_pos = pos
     if target.ally:
         target.ally.known_next = bullet
+        target.ally.known_pos = pos
         print(f"  🔗 【同盟共享】底牌情报已同步给盟友 {target.ally.name}！")
 
 def clear_all_memories():
     for p in alive_players:
         p.known_next = B_UNKNOWN
+        p.known_pos = 0
     print("  🧠 物理顺序改变，所有人的私有记忆被强制清空！")
 
 def load_chamber():
@@ -312,14 +316,18 @@ while len(alive_players) > 1:
             if p1.ally == p2 and p2.ally == p1:
                 break
 
-        if not p.ally: p.known_next = B_UNKNOWN
+        if not p.ally: 
+            p.known_next = B_UNKNOWN
+            p.known_pos = 0
         
         if not chamber:
             round_num += 1
             chamber = load_chamber()
             print(f"\n💥 【换弹】第 {round_num} 轮，上帝视角弹匣序列：{chamber}")
             for alive_p in alive_players:
-                if not alive_p.ally: alive_p.known_next = B_UNKNOWN
+                if not alive_p.ally: 
+                    alive_p.known_next = B_UNKNOWN
+                    alive_p.known_pos = 0
                 alive_p.sawed = False
                 alive_p.has_shield = False
                 alive_p.has_plate = False
@@ -407,7 +415,14 @@ while len(alive_players) > 1:
                 if current.has_defib and "除颤器" in current.items:
                     item_prompt += " (你身上已有除颤器，不能再装除颤器！)"
 
-            private_info = f"你的私有记忆：你确切知道下一发是【{current.known_next}】。" if current.known_next != B_UNKNOWN else "你的私有记忆：你不知道下一发是什么。"
+            # 【核心修复】动态 Prompt 提示词，让 AI 分清楚是第几发
+            if current.known_next != B_UNKNOWN:
+                if current.known_pos == 1:
+                    private_info = f"你的私有情报：你确切知道【下一发】是【{current.known_next}】。"
+                else:
+                    private_info = f"你的私有情报：你确切知道枪膛里的【第 {current.known_pos} 发】是【{current.known_next}】（注意，这不一定是你马上要打出的下一发）。"
+            else:
+                private_info = "你的私有记忆：你不知道下一发是什么。"
             
             prompt = f"""你是{current.name}。HP:{current.hp}。
 {item_prompt}
@@ -552,6 +567,7 @@ while len(alive_players) > 1:
                                     tgt.ally = current
                                     contract_alive = True
                                     current.known_next = tgt.known_next
+                                    current.known_pos = tgt.known_pos
                                     print(f"✅ {tgt.name} 同意了结盟！双方达成生死契约！")
                                 else:
                                     print(f"❌ {tgt.name} 拒绝了结盟请求！")
@@ -613,19 +629,20 @@ while len(alive_players) > 1:
                             handle_death(current)
                             if current not in alive_players: action_taken = True
                     
-                    # 【核心修复】分离放大镜与一次性手机的逻辑与文案
+                    # 【核心修复】分离放大镜与一次性手机的逻辑与文案，配合神秘人告密设定
                     elif item in ["放大镜", "一次性手机"]:
                         if item == "放大镜": 
-                            sync_memory(current, chamber[0] if chamber else B_UNKNOWN)
+                            sync_memory(current, chamber[0] if chamber else B_UNKNOWN, 1)
                             print(f"🔍 玩家 {current.name} 用放大镜查看了底牌，下一发是【{current.known_next}】。")
                         else:
                             if chamber:
                                 idx = random.randrange(len(chamber))
-                                sync_memory(current, chamber[idx])
-                                print(f"🔍 玩家 {current.name} 用手机偷拍了枪膛，第 {idx+1} 发是【{current.known_next}】（但下一发不一定是它）。")
+                                sync_memory(current, chamber[idx], idx + 1)
+                                print(f"📞 玩家 {current.name} 拨打了神秘人电话。")
+                                print(f"🤫 神秘人告密：枪膛里的第 {idx+1} 发子弹是【{chamber[idx]}】！")
                             else:
-                                sync_memory(current, B_UNKNOWN)
-                                print(f"🔍 玩家 {current.name} 用手机偷拍了枪膛，但枪膛是空的。")
+                                sync_memory(current, B_UNKNOWN, 0)
+                                print(f"📞 玩家 {current.name} 拨打了神秘人电话，但枪膛是空的。")
                     
                     elif item == "啤酒":
                         if chamber:
@@ -636,7 +653,7 @@ while len(alive_players) > 1:
                             old_b = chamber[0]
                             chamber[0] = next_bullet_type(old_b)
                             if current.known_next != B_UNKNOWN: 
-                                sync_memory(current, next_bullet_type(current.known_next))
+                                sync_memory(current, next_bullet_type(current.known_next), current.known_pos)
                             print(f"🔄 逆转了子弹！")
                     elif item == "手锯": 
                         current.sawed = True
@@ -695,7 +712,9 @@ while len(alive_players) > 1:
                                     print(f"  💥 榴弹波及了 {tgt.name}：")
                                     resolve_damage(current, tgt, bullet, current.sawed, extra_dmg, is_launcher=True)
                             current.sawed = False
-                            if not current.ally: current.known_next = B_UNKNOWN
+                            if not current.ally: 
+                                current.known_next = B_UNKNOWN
+                                current.known_pos = 0
                             action_taken = True 
                         else: 
                             print("⚠️ 枪膛空空，榴弹发射器无法使用。")
@@ -785,7 +804,9 @@ while len(alive_players) > 1:
                     if not chamber: break
                     continue 
                 else:
-                    if not current.ally: current.known_next = B_UNKNOWN
+                    if not current.ally: 
+                        current.known_next = B_UNKNOWN
+                        current.known_pos = 0
                 break 
 
         if not action_taken:
@@ -818,7 +839,9 @@ while len(alive_players) > 1:
                     if current in alive_players:
                         resolve_damage(current, target, bullet, current.sawed, extra_dmg)
                         current.sawed = False
-                        if not current.ally: current.known_next = B_UNKNOWN
+                        if not current.ally: 
+                            current.known_next = B_UNKNOWN
+                            current.known_pos = 0
                 action_taken = True
 
         if len(alive_players) <= 1: break
