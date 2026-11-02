@@ -103,6 +103,16 @@ def clear_all_memories():
         p.known_pos = 0
     print("  🧠 物理顺序改变，所有人的私有记忆被强制清空！")
 
+# 【修复】子弹被消耗或退弹后，所有已知情报的位置前移1位
+def consume_bullet_memory_shift():
+    for p in alive_players:
+        if p.known_next != B_UNKNOWN:
+            if p.known_pos > 1:
+                p.known_pos -= 1
+            elif p.known_pos == 1:
+                p.known_next = B_UNKNOWN
+                p.known_pos = 0
+
 def load_chamber():
     total = random.randint(6, 12)
     chamber = []
@@ -324,10 +334,11 @@ while len(alive_players) > 1:
             round_num += 1
             chamber = load_chamber()
             print(f"\n💥 【换弹】第 {round_num} 轮，上帝视角弹匣序列：{chamber}")
+            
+            # 【修复】换弹时全员记忆清空，防止盟友记忆残留
+            clear_all_memories()
+            
             for alive_p in alive_players:
-                if not alive_p.ally: 
-                    alive_p.known_next = B_UNKNOWN
-                    alive_p.known_pos = 0
                 alive_p.sawed = False
                 alive_p.has_shield = False
                 alive_p.has_plate = False
@@ -566,8 +577,13 @@ while len(alive_players) > 1:
                                     current.ally = tgt
                                     tgt.ally = current
                                     contract_alive = True
-                                    current.known_next = tgt.known_next
-                                    current.known_pos = tgt.known_pos
+                                    # 【修复】优先保留有用的情报，避免互相覆盖
+                                    if tgt.known_next != B_UNKNOWN:
+                                        current.known_next = tgt.known_next
+                                        current.known_pos = tgt.known_pos
+                                    elif current.known_next != B_UNKNOWN:
+                                        tgt.known_next = current.known_next
+                                        tgt.known_pos = current.known_pos
                                     print(f"✅ {tgt.name} 同意了结盟！双方达成生死契约！")
                                 else:
                                     print(f"❌ {tgt.name} 拒绝了结盟请求！")
@@ -647,13 +663,16 @@ while len(alive_players) > 1:
                     elif item == "啤酒":
                         if chamber:
                             eject = chamber.pop(0)
+                            consume_bullet_memory_shift()  # 【修复】
                             print(f"🍺 退出一发子弹！剩余 {len(chamber)} 发")
                     elif item == "逆转器":
                         if chamber:
                             old_b = chamber[0]
                             chamber[0] = next_bullet_type(old_b)
-                            if current.known_next != B_UNKNOWN: 
-                                sync_memory(current, next_bullet_type(current.known_next), current.known_pos)
+                            # 【修复】只改变确切知道第1发的人的记忆
+                            for p in alive_players:
+                                if p.known_pos == 1:
+                                    p.known_next = chamber[0]
                             print(f"🔄 逆转了子弹！")
                     elif item == "手锯": 
                         current.sawed = True
@@ -687,6 +706,7 @@ while len(alive_players) > 1:
                     elif item == "榴弹发射器":
                         if chamber:
                             bullet = chamber.pop(0)
+                            consume_bullet_memory_shift()  # 【修复】
                             print(f"🚀 {current.name} 发射了榴弹！消耗了一发【{bullet}】！")
                             
                             # 【新增：吃辐射伤害加成】
@@ -712,9 +732,6 @@ while len(alive_players) > 1:
                                     print(f"  💥 榴弹波及了 {tgt.name}：")
                                     resolve_damage(current, tgt, bullet, current.sawed, extra_dmg, is_launcher=True)
                             current.sawed = False
-                            if not current.ally: 
-                                current.known_next = B_UNKNOWN
-                                current.known_pos = 0
                             action_taken = True 
                         else: 
                             print("⚠️ 枪膛空空，榴弹发射器无法使用。")
@@ -743,6 +760,7 @@ while len(alive_players) > 1:
                     target = current
                 
                 bullet = chamber.pop(0) if chamber else B_BLANK
+                consume_bullet_memory_shift()  # 【修复】
                 print(f"  💥 {current.name} 朝【{target.name}】扣动了扳机...")
                 action_taken = True
                 
@@ -796,6 +814,7 @@ while len(alive_players) > 1:
                         print(f"  🎯 第一发目标已阵亡，第二发子弹强制射向自己！")
                         
                     bullet2 = chamber.pop(0) if chamber else B_BLANK
+                    consume_bullet_memory_shift()  # 【修复】
                     fire_single(bullet2, target2)
 
                 if bullet == B_BLANK and target == current and not current.cursed:
@@ -804,9 +823,7 @@ while len(alive_players) > 1:
                     if not chamber: break
                     continue 
                 else:
-                    if not current.ally: 
-                        current.known_next = B_UNKNOWN
-                        current.known_pos = 0
+                    pass # 【修复】删除了这里多余的清空记忆代码
                 break 
 
         if not action_taken:
@@ -818,6 +835,7 @@ while len(alive_players) > 1:
                 print(f"  系统强行剥夺回合，强制向敌人开枪！")
                 if chamber:
                     bullet = chamber.pop(0)
+                    consume_bullet_memory_shift()  # 【修复】
                     target = random.choice([x for x in alive_players if x != current and x != current.ally])
                     print(f"  💥 {current.name} 朝【{target.name}】扣动了扳机...")
                     
@@ -839,9 +857,7 @@ while len(alive_players) > 1:
                     if current in alive_players:
                         resolve_damage(current, target, bullet, current.sawed, extra_dmg)
                         current.sawed = False
-                        if not current.ally: 
-                            current.known_next = B_UNKNOWN
-                            current.known_pos = 0
+                        # 【修复】删除了这里多余的清空记忆代码
                 action_taken = True
 
         if len(alive_players) <= 1: break
